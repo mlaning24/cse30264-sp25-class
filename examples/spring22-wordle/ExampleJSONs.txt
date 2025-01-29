@@ -1,0 +1,43 @@
+  Messages - Test Suite
+== Join Message Test ==
+  { "MessageType" : "Join", "Data" : { "Name" : "striegel", "Client" : "TheMatrix" } }
+ Join Message .... passed
+== JoinResult Message Test ==
+  { "MessageType" : "JoinResult", "Data" : { "Name" : "striegel", "Result" : "No" } }
+ JoinResult Message .... passed
+== StartInstance Message Test ==
+  { "MessageType" : "StartInstance", "Data" : { "Server" : "127.0.0.1", "Port" : 42500, "Nonce" : 23827 } }
+ StartInstance Message .... passed
+== JoinInstance Message Test ==
+  { "MessageType" : "JoinInstance", "Data" : { "Name" : "striegel", "Nonce" : 23827 } }
+ JoinInstance Message .... passed
+== JoinInstanceResult Message Test ==
+  { "MessageType" : "JoinInstanceResult", "Data" : { "Name" : "striegel", "Number" : 1, "Result" : "Yes" } }
+ JoinInstanceResult Message .... passed
+== StartGame Message Test ==
+  { "MessageType" : "StartGame", "Data" : { "Rounds" : 3, "PlayerInfo" : [{"Name" : "striegel", "Number" : 1, "Score" : 0 }, {"Name" : "not-striegel", "Number" : 2, "Score" : 0 }] } }
+ StartGame Message .... passed
+== StartRound Message Test ==
+  { "MessageType" : "StartRound", "Data" : { "Rounds" : 3, "RoundsRemaining" : 3, "Length" : 5, "PlayerInfo" : [{"Name" : "striegel", "Number" : 1, "Score" : 0 }, {"Name" : "not-striegel", "Number" : 2, "Score" : 0 }] } }
+ StartRound Message .... passed
+== PromptForGuess Message Test ==
+  { "MessageType" : "PromptForGuess", "Data" : { "WordLength" : 1, "Name" : "striegel", "GuessNumber" : 1 } }
+ PromptForGuess Message .... passed
+== Guess Message Test ==
+  { "MessageType" : "Guess", "Data" : { "Name" : "striegel", "Guess" : "MPTCP" } }
+ Guess Message .... passed
+== GuessResponse Message Test ==
+  { "MessageType" : "GuessResponse", "Data" : { "Name" : "striegel", "Guess" : "MPTCP", "Accepted" : "Yes"  } }
+ GuessResponse Message .... passed
+== GuessStatus Message Test ==
+  { "MessageType" : "GuessStatus", "Data" : { } }
+ GuessStatus Message .... passed
+== GuessResult Message Test ==
+  { "MessageType" : "GuessResult", "Data" : { "Winner" : "Yes", "PlayerInfo" : [{"Name" : "human", "Number" : 1, "Correct" : "No", "ReceiptTime" : 1650722066.573350, "Result" : "GYYRG" }, {"Name" : "computer", "Number" : 2, "Correct" : "No", "ReceiptTime" : 42.1871366608, "Result" : "GGGGG" }] } }
+ GuessResult Message .... passed
+== EndRound Message Test ==
+  { "MessageType" : "EndRound", "Data" : { "RoundsRemaining" : 0, "PlayerInfo" : [{"Name" : "Strange", "Number" : 1, "ScoreEarned" : 25, "Winner" : "Yes" }, {"Name" : "Stark", "Number" : 2, "ScoreEarned" : 25, "Winner" : "Yes" }] } }
+ EndRound Message .... passed
+== EndGame Message Test ==
+  { "MessageType" : "EndGame", "Data" : { "WinnerName" : "None", "PlayerInfo" : [{"Name" : "striegel", "Number" : 1, "Score" : 15 }, {"Name" : "not-striegel", "Number" : 2, "Score" : 25 }] } }
+ EndGame Message .... passed

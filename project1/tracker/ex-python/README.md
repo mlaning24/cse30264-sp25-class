@@ -13,3 +13,6 @@ Once the server is running, run the client specifying the hostname and port numb
 ```
 
 Optionally, you can adjust the number of times that an echo request is sent from the client as well as the delay between echo requests via the `count` and `delay` optional arguments.
+
+This client is compatible with the C++ server and will send an echo as well as processing
+the response.

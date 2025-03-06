@@ -4,6 +4,7 @@ import socket
 import sys
 import argparse
 import time
+import math
 
 parser = argparse.ArgumentParser(description='Tracker - Server - Echo Only')
 
@@ -22,11 +23,11 @@ print('  Success!')
 
 while True:
    try:
-      print('  Waiting for a message from the client')
+      print(' Waiting for a message from the client')
       data, clientInfo = sock.recvfrom(4096)
 
       print('  Received a ' + str(len(data)) + ' byte message from host ' + str(clientInfo))
-      print('  Message Dump: ' + str(data))
+      print('  Message Dump: ' + ' '.join([f'{byte:02x}' for byte in data]))
 
       # Send a response back
 
@@ -57,11 +58,31 @@ while True:
             theResponse.append(0)
 
       # Get the current high resolution time (seconds, microseconds)
-      for theNonceByte in range(8):
-         theResponse.append(0)
+      theTime = time.time()
+      print('  Time (UTC):   ' + str(theTime))
+
+      # modf does a modulus arithmetic equivalent for floating point but it leaves the
+      #  decimal portion as a floating point (< 0) value
+      #
+      #  Since the C high resolution time is seconds and microseconds, we need to convert
+      #  this over to microseconds
+
+      (partialSec, wholeSec) = math.modf(theTime)
+      microSec = partialSec * 1000000
+      print('  Time (Split): ' + str(int(wholeSec)) + '.' + str(int(microSec)))
+
+      theByteArray = int(wholeSec).to_bytes(4, byteorder='big')
+      for theByte in theByteArray:
+         theResponse.append(theByte)
+
+      theByteArray = int(microSec).to_bytes(4, byteorder='big')
+      for theByte in theByteArray:
+         theResponse.append(theByte)
 
       # Send the response
       sent = sock.sendto(theResponse, clientInfo)
+
+      print('')
 
    except Exception as e:
       print(f"Error: {e}")

@@ -69,9 +69,11 @@ server_address = (args.host, args.port)
 
 # Echo for the specified count
 for theCount in range(args.count):
+   print('== Echo Sequence ==')
    # Make an echo request to the server (can be C++ or Python)
    doEcho(sock, server_address)
    # Sleep for the requested delay
    time.sleep(args.delay)
+   print('** End Echo Requence **')
 
 sock.close()

@@ -5,16 +5,22 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
+
+#include <string>
+using namespace std;
 
 
 #define MSG_MAX_SIZE    1500
 
-#define MSG_TYPE_UNKOWN          0
+#define MSG_TYPE_UNKNOWN         0
 #define MSG_TYPE_REGISTER        1
 #define MSG_TYPE_REGISTER_ACK    2
 #define MSG_TYPE_LIST_NODES      3
 #define MSG_TYPE_LIST_NODES_DATA 4
+
+// Testing only messages
+#define MSG_TYPE_ECHO            5
+#define MSG_TYPE_ECHO_RESPONSE   6
 
 class Message
 {
@@ -25,18 +31,36 @@ class Message
 
    public:
       /** Default constructor */
-      Message ()
-      {
-         m_byType = MSG_TYPE_UNKOWN;
-         m_nDataLength = 0;
-         memset(m_byData, MSG_MAX_SIZE, 0);
-      }
+      Message ();
+
+      /** Destructor included - not really needed */
+      ~Message();
 
       uint8_t  getType ()
       { return m_byType; }
 
       void setType (uint8_t byType)
       { m_byType = byType; }
+
+      uint16_t  getLength ()
+      { return m_nDataLength; }
+
+      void setLength (uint16_t nLength)
+      { m_nDataLength = nLength; }
+
+      uint8_t * getData ()
+      { return m_byData; }
+
+      uint16_t getMaxLength ()
+      { return MSG_MAX_SIZE; }
+
+      /* Why might we not want to have an equivalent set? */
+
+      /** Retrieve the type as a string rather than its value
+       *  @returns Valid C++ string denoting the type
+      */
+      string    getTypeAsString ();
+
 };
 
 #endif

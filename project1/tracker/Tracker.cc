@@ -10,11 +10,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/time.h>
 
 #include <iostream>
 using namespace std;
 
 #include "Tracker.h"
+#include "utils.h"
 
 Tracker::Tracker()
 {
@@ -29,9 +31,8 @@ Tracker::~Tracker()
 
 }
 
-bool Tracker::initialize ()
+bool Tracker::initialize (char * pszIP)
 {
-    int sockfd;
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
 	socklen_t addr_len;
@@ -59,37 +60,60 @@ bool Tracker::initialize ()
     // getaddrinfo gives us potential avenues for creating the socket that we will
     // use for the tracker
 
-	if ((rv = getaddrinfo(NULL, szPortString, &hints, &servinfo)) != 0) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return false;
-	}
+    if ((rv = getaddrinfo(pszIP, szPortString, &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return false;
+    }
 
 	// loop through all the results and bind to the first we can
 	for(p = servinfo; p != NULL; p = p->ai_next) {
-		if ((sockfd = socket(p->ai_family, p->ai_socktype,
+		if ((m_nSocket = socket(p->ai_family, p->ai_socktype,
 				p->ai_protocol)) == -1) {
-			perror("listener: socket");
+			perror("initialize: socket");
 			continue;
 		}
 
-		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-			close(sockfd);
-			perror("listener: bind");
-			continue;
-		}
+        if (bind(m_nSocket, p->ai_addr, p->ai_addrlen) == -1) {
+            close(m_nSocket);
+            perror("initialize: bind");
+            continue;
+        }
 
 		break;
 	}
 
 	if (p == NULL) {
-		fprintf(stderr, "listener: failed to bind socket\n");
+		fprintf(stderr, "initialize: failed to properly set up socket\n");
 		return false;
 	}
 
+    // Copy in the respective information for the socket
+    memcpy(getAddressInfo(), p->ai_addr, sizeof(struct sockaddr_in));
+
+    // A few notes on addrinfo and sockaddr
+    //
+    // addrinfo contains lots of information, part of which is a pointer to
+    // sockaddr content
+    //
+    // sockaddr is a "container" that has 16 bytes in total.  It is the same size
+    // as a sockaddr_in struct which has enough to hold an IPv4 address as well as
+    // the accompanying port and other information
+
+    /*
+    struct sockaddr_in {
+        short int          sin_family;  // Address family, AF_INET
+        unsigned short int sin_port;    // Port number
+        struct in_addr     sin_addr;    // Internet address
+        unsigned char      sin_zero[8]; // Same size as struct sockaddr
+    };
+    */
+
+    if(isVerbose())
+    {
+        dump_sockaddr_in(getAddressInfo());
+    }
+
 	freeaddrinfo(servinfo);
-
-    m_nSocket = sockfd;
-
     return true;
 }
 
@@ -105,6 +129,7 @@ void Tracker::go ()
             switch(pRcvMessage->getType())
             {
                 case MSG_TYPE_ECHO:
+                    processEcho(pRcvMessage);
                     break;
                 case MSG_TYPE_LIST_NODES:
                     break;
@@ -121,33 +146,44 @@ void Tracker::go ()
 Message * Tracker::recvMessage ()
 {
     Message * pMessage;
-	socklen_t addr_len;
-	struct sockaddr_storage their_addr;
+
+    socklen_t addr_len;
+	struct sockaddr clientAddr;
     int numbytes;
 
+    /* Create a new message object */
     pMessage = new Message ();
 
 	printf("listener: waiting to recvfrom...\n");
 
-	addr_len = sizeof(their_addr);
+	addr_len = sizeof(clientAddr);
 
 	if ((numbytes = recvfrom(getSocket(), pMessage->getData(), pMessage->getMaxLength() , 0,
-		(struct sockaddr *)&their_addr, &addr_len)) == -1) {
+		(struct sockaddr *)&clientAddr, &addr_len)) == -1) {
 		perror("recvfrom");
 		exit(1);
 	}
 
+    printf("Received a packet from a client of length %d bytes\n", numbytes);
+
+    if(isVerbose())
+    {
+        dump_sockaddr_in((struct sockaddr_in *) &clientAddr);
+    }
+
+    /* Output that we got a packet from that client */
+    pMessage->setType(pMessage->getData()[0]);
+
     /* Save the relevant info */
     pMessage->setLength((uint16_t) numbytes);
+    pMessage->recordArrival();
 
-    cout << "Tracker: Received a packet of " << pMessage->getLength() << " long" << endl;
+    /* Copy / save the information about the client on the other side */
+    memcpy(pMessage->getAddress(), &clientAddr, sizeof(struct sockaddr));
 
-    if (isVerbose())
+    if(isVerbose())
     {
-        cout << "Binary Dump of Contents" << endl;
-        // TODO: Add in a binary dump of the contents
-
-        // TODO: Process the Type and Length contents
+        pMessage->dumpData();
     }
 
     return pMessage;
@@ -155,7 +191,69 @@ Message * Tracker::recvMessage ()
 
 bool Tracker::processEcho (Message * pMessageEcho)
 {
-    return false;
+    Message * pEchoResponse;
+
+    /* The inbound message has the following content:
+        Type        1 byte      0x05   Echo
+        Length      2 bytes     0x04   Four bytes of data to follow
+        Nonce       4 bytes            Randomly generated value in network order
+    */
+
+    /* Our task is to reflect the nonce and add in a timestamp that is network
+       ordered */
+
+    printf("Processing an echo message from the client");
+
+    uint32_t    theNonce;
+    memcpy(&theNonce, pMessageEcho->getData()+3, 4);
+    theNonce = ntohl(theNonce);
+
+    printf("  Nonce (Network Order): %d\n", theNonce);
+
+    pEchoResponse = new Message();
+
+    pEchoResponse->setType(MSG_TYPE_ECHO_RESPONSE);
+    pEchoResponse->setLength(16);
+
+    // YOLO - Nothing can go wrong directly exposing a pointer and just letting the caller
+    //        manipulate the byte array, right?
+
+    /* Set the type */
+
+    pEchoResponse->getData()[0] = MSG_TYPE_ECHO_RESPONSE;
+
+    /* Set the size field */
+    uint16_t    theSize;
+    theSize = htons(pEchoResponse->getLength());
+    memcpy(pEchoResponse->getData()+1, &theSize, 2);
+
+    /* Set the status field - all is well */
+    pEchoResponse->getData()[3] = 0;
+
+    /* Copy over the 32 bit nonce data from the initial packet */
+    memcpy(pEchoResponse->getData()+4, pMessageEcho->getData()+3, 4);
+
+    /* Let's get the current time */
+    struct timeval  theTimeVal;
+
+    /* Who needs return codes? */
+    gettimeofday(&theTimeVal, 0);
+
+    printf("  The time at the server is %ld.%d\n", theTimeVal.tv_sec, theTimeVal.tv_usec);
+
+    uint32_t theIntVal;
+    theIntVal = htonl(theTimeVal.tv_sec);
+    memcpy(pEchoResponse->getData()+8, &theIntVal, 4);
+
+    theIntVal = htonl(theTimeVal.tv_usec);
+    memcpy(pEchoResponse->getData()+12, &theIntVal, 4);
+
+    printf("Sending a response from the server\n");
+    pEchoResponse->dumpData();
+
+    sendto(getSocket(), pEchoResponse->getData(), pEchoResponse->getLength(), 0, (struct sockaddr *) pMessageEcho->getAddress(), sizeof(struct sockaddr_in));
+
+    return true;
 }
 
 bool Tracker::processRegister (Message * pMessageRegister)

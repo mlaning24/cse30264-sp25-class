@@ -6,6 +6,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <time.h>
+
 #include <string>
 using namespace std;
 
@@ -22,12 +27,30 @@ using namespace std;
 #define MSG_TYPE_ECHO            5
 #define MSG_TYPE_ECHO_RESPONSE   6
 
+#define MSG_STATUS_FINE       0
+#define MSG_STATUS_ISSUE      1
+
+// Message came from the client
+#define MSG_DIRECTION_CLIENT  0
+// Message is being sent from the server
+#define MSG_DIRECTION_SERVER  1
+
 class Message
 {
    private:
       uint8_t     m_byType;
       uint16_t    m_nDataLength;
+      uint8_t     m_byErrorCode;
       uint8_t     m_byData [MSG_MAX_SIZE];
+
+      // Address and port associated with the socket
+      struct sockaddr_in   m_SrcInfo;
+
+      // Time - when did the message arrive
+      struct timeval m_timeArrival;
+
+      // Which direction is the message going?
+      uint8_t     m_byDirection;
 
    public:
       /** Default constructor */
@@ -61,6 +84,23 @@ class Message
       */
       string    getTypeAsString ();
 
+      /** Record the arrival time */
+      void     recordArrival ();
+
+      /** Get access to the arrival time */
+      timeval *   getArrivalTime ()
+      { return &m_timeArrival; }
+
+      /** Get access to the address that sent the message */
+      struct sockaddr_in * getAddress ()
+      { return &m_SrcInfo; }
+
+      /** Extract all the data (including type and length) into the
+       * specified buffer location
+       */
+      int   extractBuffer (uint8_t * pBuffer, int nMaxSize);
+
+      void  dumpData ();
 };
 
 #endif

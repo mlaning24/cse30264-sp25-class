@@ -1,4 +1,6 @@
 
+#include <sys/time.h>
+
 #include "Message.h"
 
 Message::Message ()
@@ -33,5 +35,40 @@ string Message::getTypeAsString ()
          return "Echo-Response";
       default:
          return "Undefined";
+   }
+}
+
+void Message::recordArrival ()
+{
+   gettimeofday(getArrivalTime(), 0);
+}
+
+int  Message::extractBuffer (uint8_t * pBuffer, int nMaxSize)
+{
+   /* First byte is always the buffer */
+   pBuffer[0] = getType();
+
+   /* Convert things to big endian (if needed) */
+   uint16_t  properLength;
+
+   properLength = htons(getLength());
+   memcpy(pBuffer+1,&properLength,2);
+
+   /* Put all of the actual data in */
+   for(int j=0; j<getLength(); j++)
+   {
+      pBuffer[j+3] = m_byData[j];
+   }
+
+   return getLength() + 3;
+}
+
+void Message::dumpData ()
+{
+   printf("Message with length (%d bytes)\n", getLength());
+
+   for (int j=0; j<getLength(); j++)
+   {
+      printf("Byte %02d: %02X\n", j, m_byData[j]);
    }
 }

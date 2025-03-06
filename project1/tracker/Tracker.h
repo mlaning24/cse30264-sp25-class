@@ -23,16 +23,23 @@ class Tracker
       // The socket associated with the tracker (server)
       int      m_nSocket;
 
-   protected:
+      /* What is our particular information for the server? */
+      struct sockaddr_in m_AddressInfo;
 
-      int   getSocket ()
-      { return m_nSocket; }
+
 
    public:
+
       Tracker ();
       ~Tracker();
 
-      bool initialize ();
+      bool initialize (char * pszIP);
+
+      struct sockaddr_in * getAddressInfo ()
+      { return &m_AddressInfo; }
+
+      int   getSocket ()
+      { return m_nSocket; }
 
       uint16_t getPort ()
       { return m_nPort; }
@@ -49,11 +56,17 @@ class Tracker
       /* Sit and loop */
       void  go ();
 
+      /** Wait for a message on the server socket
+       * @returns Pointer to a valid object if there was a message successfully read
+       */
       Message * recvMessage ();
 
       bool  processEcho (Message * pEchoMessage);
       bool  processRegister (Message * pRegisterMessage);
       bool  processListNodes (Message * pListNodesMessage);
+
+      bool  doEcho ();
+
 };
 
 

@@ -5,7 +5,7 @@ Message::Message ()
 {
    m_byType = MSG_TYPE_UNKNOWN;
    m_nDataLength = 0;
-   memset(m_byData, MSG_MAX_SIZE, 0);
+   memset(m_byData, 0, MSG_MAX_SIZE);
 }
 
 Message::~Message ()
@@ -31,5 +31,7 @@ string Message::getTypeAsString ()
          return "Echo";
       case MSG_TYPE_ECHO_RESPONSE:
          return "Echo-Response";
+      default:
+         return "Undefined";
    }
 }

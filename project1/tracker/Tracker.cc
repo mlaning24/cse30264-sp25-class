@@ -24,6 +24,11 @@ Tracker::Tracker()
     m_nSocket = -1;
 }
 
+Tracker::~Tracker()
+{
+
+}
+
 bool Tracker::initialize ()
 {
     int sockfd;
@@ -49,7 +54,7 @@ bool Tracker::initialize ()
 	hints.ai_flags = AI_PASSIVE; // use my IP
 
     char szPortString[10];
-    sprintf(szPortString, "%d", getPort());
+    snprintf(szPortString, 10, "%d", getPort());
 
     // getaddrinfo gives us potential avenues for creating the socket that we will
     // use for the tracker

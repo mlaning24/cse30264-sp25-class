@@ -7,7 +7,7 @@ LD=g++
 LDFLAGS=
 LIBS=
 
-SOURCE=	$(wildcard *.cc)
+SOURCE=	$(wildcard *.cc *.c)
 OBJECTS=	$(SOURCE:.cc=.o)
 TARGETS=	tracker
 

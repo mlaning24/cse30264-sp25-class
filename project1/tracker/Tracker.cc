@@ -24,6 +24,9 @@ Tracker::Tracker()
     m_nPort = 0;
     // Nothing in the socket
     m_nSocket = -1;
+    m_nNextID = 1;
+
+    m_nLeaseTime = DEFAULT_REGISTER_EXPIRATION;
 }
 
 Tracker::~Tracker()
@@ -132,6 +135,7 @@ void Tracker::go ()
                     processEcho(pRcvMessage);
                     break;
                 case MSG_TYPE_LIST_NODES:
+                    processRegister(pRcvMessage);
                     break;
                 case MSG_TYPE_REGISTER:
                     break;
@@ -248,8 +252,12 @@ bool Tracker::processEcho (Message * pMessageEcho)
     theIntVal = htonl(theTimeVal.tv_usec);
     memcpy(pEchoResponse->getData()+12, &theIntVal, 4);
 
-    printf("Sending a response from the server\n");
-    pEchoResponse->dumpData();
+    printf("Sending an echo response from the server containg %d bytes\n", pEchoResponse->getLength());
+
+    if(isVerbose())
+    {
+        pEchoResponse->dumpData();
+    }
 
     sendto(getSocket(), pEchoResponse->getData(), pEchoResponse->getLength(), 0, (struct sockaddr *) pMessageEcho->getAddress(), sizeof(struct sockaddr_in));
 
@@ -258,10 +266,269 @@ bool Tracker::processEcho (Message * pMessageEcho)
 
 bool Tracker::processRegister (Message * pMessageRegister)
 {
-    return false;
+    struct timeval  currentTime;
+    int nCurrentEntry;
+
+    /* At this point, we know that the message is a registration (0x01) message */
+
+    Message * pMessageRegisterACK;
+
+    /* The format of the registration message should be
+     *   1 Byte  - Requested Identifier (0 if unknown, non-zero otherwise)
+     *   4 Bytes - IP Address
+     *   2 Bytes - Port Number
+     *   2 Bytes - Number of Files
+     *
+     * All content should be in network order (big endian) which would apply to the
+     *  IP address, port number, and number of files
+    */
+
+    /* The response message now adds a status field after the length. The length does
+       include the status field.
+    */
+
+    pMessageRegisterACK = new Message();
+
+    pMessageRegisterACK->getData()[0] = 0x02;
+
+    /* The length is 14 bytes */
+    pMessageRegisterACK->getData()[1] = 0x00;
+    pMessageRegisterACK->getData()[2] = 0x0E;
+
+    /* Skip the status code for now - Byte 3 */
+    // Just in case - make it a 1 - something bad??
+    pMessageRegisterACK->getData()[3] = 0x01;
+
+    /* Copy over the rest of the original content */
+    memcpy(pMessageRegisterACK->getData()+4, pMessageRegister->getData()+3, 9);
+
+    /* Double check / ensure that the registration expiry is zero */
+    memset(pMessageRegisterACK->getData()+13,0,4);
+
+    /* Do we have the right size? */
+    // For inbound messages here to the server, the length is the actual length as observed
+    // as recorded by recvfrom
+    if (pMessageRegister->getLength() != 12)
+    {
+        /* Bad length - note it here on the console */
+        cout << "Error: Registration message did wrong count of bytes (Expected 9, had )" << pMessageRegister->getLength() << " bytes" << endl;
+
+        /* Status code - nope - this was a bad registration */
+        pMessageRegisterACK->getData()[3] = 0x01;
+
+        /* Set the identifier to zero */
+        pMessageRegisterACK->getData()[4] = 0x00;
+
+        /* No need to adjust the expiration time - that was already zero'd */
+    }
+    else
+    {
+        /* Is this a new registration or a renewal? */
+        if(pMessageRegister->getData()[3] == 0x00)
+        {
+            /* This is a new request (we think) */
+
+            /* Figure out the next open node ID */
+            uint8_t     assignedID;
+
+            assignedID = getNextNodeID();
+
+            /* Create a new node entry from this information */
+            Node    theNode;
+
+            theNode.setID(assignedID);
+
+            uint16_t    theShort;
+            uint32_t    theAddress;
+
+            /* Copy over the IP address */
+            memcpy(theNode.getIPAddressAsPointer(), pMessageRegister->getData()+4, 4);
+
+            /* Port number */
+            memcpy(&theShort, pMessageRegister->getData()+8, 2);
+            theShort = ntohs(theShort);
+            theNode.setPort(theShort);
+
+            /* Number of files */
+            memcpy(&theShort, pMessageRegister->getData()+10, 2);
+            theShort = ntohs(theShort);
+            theNode.setFiles(theShort);
+
+            /* When did we last see the node? */
+            theNode.updateRegistrationTime();
+
+            /* Give it an expiration */
+
+            // What is the current time?
+            gettimeofday(&currentTime, 0);
+
+            currentTime.tv_sec += getLeaseTime();
+
+            theNode.setExpirationTime(currentTime);
+
+            m_NodeTable.push_back(theNode);
+            nCurrentEntry = m_NodeTable.size()-1;
+        }
+        else
+        {
+            // Which node are we?
+            nCurrentEntry = findNodeIndexByID(pMessageRegister->getData()[3]);
+
+            if(nCurrentEntry != -1)
+            {
+                /* When did we last see the node? */
+                m_NodeTable[nCurrentEntry].updateRegistrationTime();
+
+                // What is the current time?
+                gettimeofday(&currentTime, 0);
+
+                currentTime.tv_sec += getLeaseTime();
+
+                m_NodeTable[nCurrentEntry].setExpirationTime(currentTime);
+            }
+            else
+            {
+                cout << "Error: Unable to find a node in the table with ID " << pMessageRegister->getData()[3] << endl;
+            }
+        }
+
+        if(nCurrentEntry != -1)
+        {
+            pMessageRegisterACK->getData()[3] = 0x00;
+            pMessageRegisterACK->getData()[4] = m_NodeTable[nCurrentEntry].getID();
+        }
+        else
+        {
+            cout << "Error - Register-ACK message will note a failure" << endl;
+            // Had an error - something went bad
+            pMessageRegisterACK->getData()[3] = 0x01;
+            pMessageRegisterACK->getData()[4] = 0x00;
+        }
+    }
+
+    // Send the registration ACK message back to the requested client
+    printf("Sending a registration ACK from the server containg %d bytes\n", pMessageRegisterACK->getLength());
+
+    if(isVerbose())
+    {
+        pMessageRegisterACK->dumpData();
+    }
+
+    sendto(getSocket(), pMessageRegisterACK->getData(), pMessageRegisterACK->getLength(), 0, (struct sockaddr *) pMessageRegister->getAddress(), sizeof(struct sockaddr_in));
+
+    return true;
+}
+
+uint8_t Tracker::getNextNodeID ()
+{
+    // TODO: Make this more sophisticated for searching (maybe)
+    return m_nNextID++;
 }
 
 bool Tracker::processListNodes (Message * pMessageListNodes)
 {
-    return false;
+    /* At this point, we know that the message is a list-nodes (0x03) message */
+
+    Message * pMessageListNodesData;
+
+    /* The format of the registration message should be
+     *   1 Byte - MaxCount - The maximum number of nodes provided by the tracker
+     */
+
+    /* The response message now adds a status field after the length. The length does
+    include the status field.
+    */
+
+    pMessageListNodesData = new Message();
+
+    pMessageListNodesData->getData()[0] = 0x04;
+
+    /* The length is now variable depending on how many nodes */
+
+    uint8_t     nNodesToShare;
+
+    nNodesToShare = pMessageListNodes->getData()[3];
+
+    if (m_NodeTable.size() < nNodesToShare)
+    {
+        nNodesToShare = (uint8_t) m_NodeTable.size();
+    }
+
+    uint16_t    totalLength;
+
+    /* 13 bytes each plus the initial type and length and status */
+    totalLength = nNodesToShare * 13 + 3 + 1;
+
+    totalLength = htons(totalLength);
+
+    memcpy(pMessageListNodesData->getData()+1, &totalLength, 2);
+
+    /* Set the status byte */
+    pMessageListNodesData->getData()[3] = 0x00;
+
+    // Offset into the data
+    //  Initially is 1 (type) + 2 (length) + 1 (status)
+    uint16_t theOffset = 1 + 2 + 1;
+
+    for(int j=0; j<nNodesToShare; j++)
+    {
+        theOffset += m_NodeTable[j].constructNodeData(pMessageListNodesData->getData()+theOffset);
+    }
+
+    // Send the registration ACK message back to the requested client
+    printf("Sending a list-nodes-data from the server containg %d bytes\n", pMessageListNodesData->getLength());
+
+    if(isVerbose())
+    {
+        pMessageListNodesData->dumpData();
+    }
+
+    sendto(getSocket(), pMessageListNodesData->getData(), pMessageListNodesData->getLength(), 0, (struct sockaddr *) pMessageListNodes->getAddress(), sizeof(struct sockaddr_in));
+    return true;
+}
+
+int Tracker::findNodeIndexByID (uint8_t theID)
+{
+    for (int j=0; j<m_NodeTable.size(); j++)
+    {
+        if (m_NodeTable[j].getID() == theID)
+        {
+            return j;
+        }
+    }
+
+    return -1;
+}
+
+void Tracker::dumpTable ()
+{
+    printf("Tracking Table (%lu entries)\n", m_NodeTable.size());
+
+    for (int j=0; j<m_NodeTable.size(); j++)
+    {
+        /* ID for the node */
+        printf("%3d ", m_NodeTable[j].getID());
+
+        /* IP Address */
+        uint8_t * pByte;
+        pByte = (uint8_t *) m_NodeTable[j].getIPAddressAsPointer();
+        for (int i=0; i<4; i++)
+        {
+            printf("%3d", pByte[j]);
+            if(i<3)
+            {
+                printf(".");
+            }
+        }
+
+        /* Port Number */
+        printf(" %5d ", m_NodeTable[j].getPort());
+
+        /* Number of files */
+        printf("%3d ", m_NodeTable[j].getFiles());
+
+        /* Expiration Time (UTC) */
+        // TODO: Make this easier to read?
+        printf("%ld\n", m_NodeTable[j].getExpirationTimeAsPointer()->tv_sec);
+    }
 }

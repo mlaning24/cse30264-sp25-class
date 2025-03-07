@@ -10,6 +10,8 @@ using namespace std;
 #include "Node.h"
 #include "Message.h"
 
+#define DEFAULT_REGISTER_EXPIRATION    300
+
 class Tracker
 {
    private:
@@ -27,6 +29,10 @@ class Tracker
       struct sockaddr_in m_AddressInfo;
 
 
+      uint8_t  m_nNextID;
+
+      /* Time that a node receives their lease (default = 300) */
+      uint32_t    m_nLeaseTime;
 
    public:
 
@@ -53,6 +59,12 @@ class Tracker
       void setVerbose (bool bVerbose)
       { m_bVerbose = bVerbose; }
 
+      uint32_t getLeaseTime ()
+      { return m_nLeaseTime; }
+
+      void setLeaseTime (uint32_t nLeaseTime)
+      { m_nLeaseTime = nLeaseTime; }
+
       /* Sit and loop */
       void  go ();
 
@@ -67,6 +79,11 @@ class Tracker
 
       bool  doEcho ();
 
+      uint8_t  getNextNodeID ();
+
+      int   findNodeIndexByID (uint8_t theID);
+
+      void  dumpTable ();
 };
 
 

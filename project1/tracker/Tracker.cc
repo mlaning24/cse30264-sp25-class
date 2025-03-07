@@ -138,11 +138,14 @@ void Tracker::go ()
                     processRegister(pRcvMessage);
                     break;
                 case MSG_TYPE_REGISTER:
+                    processRegister(pRcvMessage);
                     break;
                 default:
                     // The client should not be sending these messages to us
                     break;
             }
+
+            delete pMessage;
         }
     }
 }
@@ -261,6 +264,7 @@ bool Tracker::processEcho (Message * pMessageEcho)
 
     sendto(getSocket(), pEchoResponse->getData(), pEchoResponse->getLength(), 0, (struct sockaddr *) pMessageEcho->getAddress(), sizeof(struct sockaddr_in));
 
+    delete pEchoResponse;
     return true;
 }
 
@@ -416,6 +420,7 @@ bool Tracker::processRegister (Message * pMessageRegister)
 
     sendto(getSocket(), pMessageRegisterACK->getData(), pMessageRegisterACK->getLength(), 0, (struct sockaddr *) pMessageRegister->getAddress(), sizeof(struct sockaddr_in));
 
+    delete pMessageRegisterACK;
     return true;
 }
 
@@ -427,6 +432,11 @@ uint8_t Tracker::getNextNodeID ()
 
 bool Tracker::processListNodes (Message * pMessageListNodes)
 {
+    if(isVerbose())
+    {
+        dumpTable();
+    }
+
     /* At this point, we know that the message is a list-nodes (0x03) message */
 
     Message * pMessageListNodesData;
@@ -484,6 +494,8 @@ bool Tracker::processListNodes (Message * pMessageListNodes)
     }
 
     sendto(getSocket(), pMessageListNodesData->getData(), pMessageListNodesData->getLength(), 0, (struct sockaddr *) pMessageListNodes->getAddress(), sizeof(struct sockaddr_in));
+
+    delete pMessageListNodesData;
     return true;
 }
 

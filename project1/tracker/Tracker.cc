@@ -300,6 +300,9 @@ bool Tracker::processRegister (Message * pMessageRegister)
 
     pMessageRegisterACK->getData()[0] = 0x02;
 
+    /* Set the length appropriately */
+    pMessageRegisterACK->setLength(14);
+
     /* The length is 14 bytes */
     pMessageRegisterACK->getData()[1] = 0x00;
     pMessageRegisterACK->getData()[2] = 0x0E;
@@ -320,7 +323,7 @@ bool Tracker::processRegister (Message * pMessageRegister)
     if (pMessageRegister->getLength() != 12)
     {
         /* Bad length - note it here on the console */
-        cout << "Error: Registration message did wrong count of bytes (Expected 9, had )" << pMessageRegister->getLength() << " bytes" << endl;
+        cout << "Error: Registration message did wrong count of bytes (Expected 12, had )" << pMessageRegister->getLength() << " bytes" << endl;
 
         /* Status code - nope - this was a bad registration */
         pMessageRegisterACK->getData()[3] = 0x01;

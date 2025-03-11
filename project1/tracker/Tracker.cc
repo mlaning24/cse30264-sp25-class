@@ -146,7 +146,7 @@ void Tracker::go ()
                     break;
             }
 
-            delete pMessage;
+            delete pRcvMessage;
         }
     }
 }
@@ -183,7 +183,11 @@ Message * Tracker::recvMessage ()
     pMessage->setType(pMessage->getData()[0]);
 
     /* Save the relevant info */
-    pMessage->setLength((uint16_t) numbytes);
+    uint16_t    nRcvBytes;
+
+    nRcvBytes = numbytes;
+
+    pMessage->setLength(ntohs(nRcvBytes));
     pMessage->recordArrival();
 
     /* Copy / save the information about the client on the other side */

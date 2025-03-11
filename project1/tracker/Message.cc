@@ -66,6 +66,7 @@ int  Message::extractBuffer (uint8_t * pBuffer, int nMaxSize)
 void Message::dumpData ()
 {
    printf("Message with length (%d bytes)\n", getLength());
+   printf("  Message arrived at %ld.%d\n", m_timeArrival.tv_sec, m_timeArrival.tv_usec);
 
    for (int j=0; j<getLength(); j++)
    {

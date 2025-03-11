@@ -56,7 +56,7 @@ def doRegister (theSocket, theServerInfo):
    try:
       theBytes = bytearray()
 
-      # The type is 5
+      # The type is 1
       theBytes.append(1)
       # The length is 4 across two bytes (16 bits)
       theBytes.append(0)
@@ -97,6 +97,38 @@ def doRegister (theSocket, theServerInfo):
 
    return True
 
+def doList (theSocket, theServerInfo):
+   try:
+      theBytes = bytearray()
+
+      # The type is 3
+      theBytes.append(3)
+      # The length is 4 across two bytes (16 bits)
+      theBytes.append(0)
+      theBytes.append(4)
+
+      # Maximum count (default is 10)
+      theBytes.append(10)
+
+      print('Sending ' + str(len(theBytes)) + ' bytes to ' + str(theServerInfo))
+      print('  Hex Representation: ' + ' '.join([f'{byte:02x}' for byte in theBytes]))
+      sent = sock.sendto(theBytes, theServerInfo)
+
+      print('  Awaiting data back via a recv call')
+      data, server = sock.recvfrom(4096)
+
+      print('From Server:  ' + str(server))
+      print(' Data Length: ' + str(len(data)))
+      # This should be a binary array of data (e.g. start with b)
+      print(' Data: ' + ' '.join([f'{byte:02x}' for byte in data]))
+   except Exception as e:
+      print(f"Error: {e}")
+   else:
+      print('Success - no errors detected!!')
+
+   return True
+
+
 
 parser = argparse.ArgumentParser(description='Tracker - Echo Test Client')
 
@@ -126,7 +158,13 @@ for theCount in range(args.count):
       print('== Register Sequence ==')
       doRegister(sock, server_address)
    elif args.msg == 'list':
-      pass
+      print('== List Sequence ==')
+      doList(sock, server_address)
+   elif args.msg == 'all':
+      print('== All Sequence ==')
+      doEcho(sock, server_address)
+      doRegister(sock, server_address)
+      doList(sock, server_address)
    else:
       print('Error: Unknown message type (' + args.msg + ') - unable to test')
       break

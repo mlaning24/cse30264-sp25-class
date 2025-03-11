@@ -135,7 +135,7 @@ void Tracker::go ()
                     processEcho(pRcvMessage);
                     break;
                 case MSG_TYPE_LIST_NODES:
-                    processRegister(pRcvMessage);
+                    processListNodes(pRcvMessage);
                     break;
                 case MSG_TYPE_REGISTER:
                     processRegister(pRcvMessage);
@@ -445,7 +445,7 @@ bool Tracker::processListNodes (Message * pMessageListNodes)
 
     Message * pMessageListNodesData;
 
-    /* The format of the registration message should be
+    /* The format of the list nodes message should be
      *   1 Byte - MaxCount - The maximum number of nodes provided by the tracker
      */
 
@@ -461,30 +461,37 @@ bool Tracker::processListNodes (Message * pMessageListNodes)
 
     uint8_t     nNodesToShare;
 
+    /* What was the maximum count as requested by the client? */
     nNodesToShare = pMessageListNodes->getData()[3];
 
+    /* Which is bigger - the maximum count from the client or how many nodes we actually have? */
     if (m_NodeTable.size() < nNodesToShare)
     {
         nNodesToShare = (uint8_t) m_NodeTable.size();
     }
 
+    /* Set the status byte */
+    pMessageListNodesData->getData()[3] = 0x00;
+
+    /* Reflect back the maximum count */
+    pMessageListNodesData->getData()[4] = pMessageListNodes->getData()[3];
+
+    /* State the actual count that is being provided */
+    pMessageListNodesData->getData()[5] = nNodesToShare;
+
     uint16_t    totalLength;
 
-    /* 13 bytes each plus the initial type and length and status */
-    totalLength = nNodesToShare * 13 + 3 + 1;
+    /* 13 bytes each plus the initial type and length and status and max count / count */
+    totalLength = nNodesToShare * 13 + 3 + 1 + 2;
     pMessageListNodesData->setLength(totalLength);
 
     totalLength = htons(totalLength);
 
     memcpy(pMessageListNodesData->getData()+1, &totalLength, 2);
 
-
-    /* Set the status byte */
-    pMessageListNodesData->getData()[3] = 0x00;
-
     // Offset into the data
-    //  Initially is 1 (type) + 2 (length) + 1 (status)
-    uint16_t theOffset = 1 + 2 + 1;
+    //  Initially is 1 (type) + 2 (length) + 1 (status) + 1 (max count) + 1 (actual count)
+    uint16_t theOffset = 1 + 2 + 1 + 1 + 1;
 
     for(int j=0; j<nNodesToShare; j++)
     {
@@ -532,7 +539,7 @@ void Tracker::dumpTable ()
         pByte = (uint8_t *) m_NodeTable[j].getIPAddressAsPointer();
         for (int i=0; i<4; i++)
         {
-            printf("%3d", pByte[j]);
+            printf("%3d", pByte[i]);
             if(i<3)
             {
                 printf(".");

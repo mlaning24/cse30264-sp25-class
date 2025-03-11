@@ -476,10 +476,12 @@ bool Tracker::processListNodes (Message * pMessageListNodes)
 
     /* 13 bytes each plus the initial type and length and status */
     totalLength = nNodesToShare * 13 + 3 + 1;
+    pMessageListNodesData->setLength(totalLength);
 
     totalLength = htons(totalLength);
 
     memcpy(pMessageListNodesData->getData()+1, &totalLength, 2);
+
 
     /* Set the status byte */
     pMessageListNodesData->getData()[3] = 0x00;

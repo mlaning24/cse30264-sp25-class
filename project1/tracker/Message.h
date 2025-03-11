@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <time.h>
+#include <cstring>
 
 #include <string>
 using namespace std;

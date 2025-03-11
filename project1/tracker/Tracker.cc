@@ -141,6 +141,7 @@ void Tracker::go ()
                     processRegister(pRcvMessage);
                     break;
                 default:
+                    printf("Unknown message type: %d\n", pRcvMessage->getType());
                     // The client should not be sending these messages to us
                     break;
             }

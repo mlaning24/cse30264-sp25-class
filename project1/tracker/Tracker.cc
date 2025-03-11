@@ -183,11 +183,7 @@ Message * Tracker::recvMessage ()
     pMessage->setType(pMessage->getData()[0]);
 
     /* Save the relevant info */
-    uint16_t    nRcvBytes;
-
-    nRcvBytes = numbytes;
-
-    pMessage->setLength(ntohs(nRcvBytes));
+    pMessage->setLength(numbytes);
     pMessage->recordArrival();
 
     /* Copy / save the information about the client on the other side */

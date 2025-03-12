@@ -290,6 +290,15 @@ bool Tracker::processRegister (Message * pMessageRegister)
 
     /* The response message now adds a status field after the length. The length does
        include the status field.
+       Overall Format is as follows:
+         1 byte  - Type = 0x02
+         2 bytes - Length = 17 (0x11)
+         1 byte  - Status = 0 (OK)
+         1 byte  - Identifier = Non-zero if assigned / confirmed or zero if there was an issue
+         4 bytes - IP Address
+         2 bytes - Port
+         2 bytes - Number of files
+         4 bytes - Expiration of registratin
     */
 
     pMessageRegisterACK = new Message();
@@ -297,11 +306,11 @@ bool Tracker::processRegister (Message * pMessageRegister)
     pMessageRegisterACK->getData()[0] = 0x02;
 
     /* Set the length appropriately */
-    pMessageRegisterACK->setLength(14);
+    pMessageRegisterACK->setLength(17);
 
-    /* The length is 14 bytes */
+    /* The length is 17 bytes */
     pMessageRegisterACK->getData()[1] = 0x00;
-    pMessageRegisterACK->getData()[2] = 0x0E;
+    pMessageRegisterACK->getData()[2] = 0x11;
 
     /* Skip the status code for now - Byte 3 */
     // Just in case - make it a 1 - something bad??

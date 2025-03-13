@@ -411,8 +411,25 @@ bool Tracker::processRegister (Message * pMessageRegister)
 
         if(nCurrentEntry != -1)
         {
+            if(isVerbose())
+            {
+                cout << "This is entry " << nCurrentEntry << " in the table" << endl;
+                cout << "  The ID is " << m_NodeTable[nCurrentEntry].getID() << endl;
+                cout << "  The expiration is " << m_NodeTable[nCurrentEntry].getExpirationTime().tv_sec << endl;
+            }
+
             pMessageRegisterACK->getData()[3] = 0x00;
             pMessageRegisterACK->getData()[4] = m_NodeTable[nCurrentEntry].getID();
+
+            uint32_t    lSecExpiry;
+
+            /* Get the entry from the table */
+            lSecExpiry = m_NodeTable[nCurrentEntry].getExpirationTime().tv_sec;
+            /* Apply the appropriate endianness */
+            lSecExpiry = htonl(lSecExpiry);
+
+            /* Copy in the network order seconds value for the expiration */
+            memcpy(pMessageRegisterACK->getData()+13, &lSecExpiry, 4);
         }
         else
         {

@@ -292,7 +292,7 @@ bool Tracker::processRegister (Message * pMessageRegister)
        include the status field.
        Overall Format is as follows:
          1 byte  - Type = 0x02
-         2 bytes - Length = 17 (0x11)
+         2 bytes - Length = 17 (0x0011 - big endian format)
          1 byte  - Status = 0 (OK)
          1 byte  - Identifier = Non-zero if assigned / confirmed or zero if there was an issue
          4 bytes - IP Address

@@ -344,6 +344,7 @@ bool Tracker::processRegister (Message * pMessageRegister)
         if(pMessageRegister->getData()[3] == 0x00)
         {
             /* This is a new request (we think) */
+            cout << "Detected a new registration (ID was 0)" << endl;
 
             /* Figure out the next open node ID */
             uint8_t     assignedID;
@@ -354,6 +355,8 @@ bool Tracker::processRegister (Message * pMessageRegister)
             Node    theNode;
 
             theNode.setID(assignedID);
+
+            cout << "  Assigning an ID of " << assignedID << endl;
 
             uint16_t    theShort;
             uint32_t    theAddress;
@@ -388,11 +391,15 @@ bool Tracker::processRegister (Message * pMessageRegister)
         }
         else
         {
+            cout << "Detected a renewal - detected ID was " << pMessageRegister->getData()[3] << endl;
+
             // Which node are we?
             nCurrentEntry = findNodeIndexByID(pMessageRegister->getData()[3]);
 
             if(nCurrentEntry != -1)
             {
+                cout << "  Identified the ID as entry " << nCurrentEntry << " in the table" << endl;
+
                 /* When did we last see the node? */
                 m_NodeTable[nCurrentEntry].updateRegistrationTime();
 

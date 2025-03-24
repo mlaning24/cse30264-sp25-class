@@ -1,5 +1,7 @@
 
 #include <sys/time.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
 
 #include "Message.h"
 
@@ -60,16 +62,43 @@ int  Message::extractBuffer (uint8_t * pBuffer, int nMaxSize)
       pBuffer[j+3] = m_byData[j];
    }
 
-   return getLength() + 3;
+   /* Length is inclusive of the type and length field */
+   return getLength();
 }
 
 void Message::dumpData ()
 {
    printf("Message with length (%d bytes)\n", getLength());
    printf("  Message arrived at %ld.%d\n", m_timeArrival.tv_sec, m_timeArrival.tv_usec);
+   printf("  Type = 0x%02X\n", m_byData[0]);
+
+   uint16_t    nHostOrderLength;
+
+   memcpy(&nHostOrderLength, m_byData+1, 2);
+   nHostOrderLength = ntohs(nHostOrderLength);
+
+   printf("  Length Field = 0x%02X%02X (Value = %d)\n", m_byData[1], m_byData[2], nHostOrderLength);
 
    for (int j=0; j<getLength(); j++)
    {
-      printf("Byte %02d: %02X\n", j, m_byData[j]);
+      printf("Byte %02d: %02X", j, m_byData[j]);
+
+      switch(j)
+      {
+         case 0:
+            printf("  Type\n");
+            break;
+         case 1:
+            printf("  Length - MSB\n");
+            break;
+         case 2:
+            printf("  Length - LSB\n");
+            break;
+
+         default:
+            printf("\n");
+            break;
+      }
+
    }
 }
